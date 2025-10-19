@@ -89,15 +89,52 @@ What individual level characteristics are associated with stronger emotional att
 How do these attitudes also relate to attitudes towards the European union?
 
 ```{r}
+eu_countries <- c("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE")
+
+svyess <- svyess|>
+  mutate(is_eu = cntry %in% eu_countries)|>
+  mutate(EU_opinion =
+    case_when(
+      ess$vteurmmb %in% 1 ~ "Stay in EU",
+      ess$vteurmmb %in% 2 ~ "Leave EU",
+      ess$vteubcmb %in% 1 ~ "Join EU",
+      ess$vteubcmb %in% 2 ~ "Don't Join EU"))
+
+
+EU_attitudes <- svyess|>
+  select(difference, is_eu, EU_opinion)|>
+  drop_na()|>
+  group_by(is_eu, EU_opinion)|>
+  summarize(mean = survey_mean(difference))|>
+  ungroup()
+
+EU_attitudes$is_eu <-
+  factor(EU_attitudes$is_eu,
+         labels = c("Not in EU", "EU Member"))
+
+ggplot(EU_attitudes, aes(x=EU_opinion, y=mean, fill=EU_opinion))+
+  geom_col() +
+  scale_fill_manual(values = c("red3", "green3", "red3", "green3"))+
+  theme_minimal() +
+  labs(title = "Opinion on being in the EU on attachement to home country over Europe",
+       subtitle = "(mean attachment to country - mean attachment to Europe, scale from 1-10)",
+       x = "\nopinion on the EU",
+       y = "mean difference per country \n "
+       )+
+  facet_wrap(~is_eu, ncol=2, scales='free_x') +
+  theme(plot.title = element_text(face= "bold", hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5),
+        strip.text = element_text(face = "bold"),
+        legend.position = "none")
 
 ```
+
+On average, people who do not wish to be in the EU (whether that means not joining the union or leaving the union if they are a current member) feel a much stronger attachment to their country over those who wish to be in the EU. This is logical, since if they feel less attached to Europe in general they likely do not want to join union of European countries. An interesting data point is that there is slightly stronger attachment to their home country among EU members who want to stay over non-EU members who want to join, which could be because if someone wants to join the EU they may be disillusioned with the politics of their home country and feel less attached to it. 
 
 ## Q5 
 
 Are people in EU member countries more or less likely to hold strong national attachments?
 ```{r}
-eu_countries <- c("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE")
-
 svyess <- svyess|>
   mutate(is_eu = cntry %in% eu_countries)
 
