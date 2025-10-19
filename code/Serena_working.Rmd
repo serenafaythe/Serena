@@ -1,0 +1,163 @@
+---
+title: "Serena's Group Assignment Code"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+```{r, echo=FALSE} 
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+
+```{r}
+library(tidyverse)
+library(haven)
+library(srvyr)
+library(survey)
+library(gt)
+library(forcats)
+
+ess<- read_dta(unz("../Data/ESS11.zip", "ESS11.dta"))|>
+  zap_missing()
+
+# country = cntry, region = region, domicile = domicil, weight = anweight
+# attachment to Europe = atcherp,vattachment to country = atchctr
+# stay in EU = vteurmmb, join EU = vteubcmb, European unification = euftf
+# psppsgva Political system allows people to have a say in what government does
+# psppipla Political system allows people to have influence on politics
+
+```
+           
+
+## Q1
+Are European people more emotionally attached “Europe” or to their individual countries of residence?
+```{r}
+svyess <- ess|>
+  as_survey_design(
+    ids = psu,
+    strata= stratum,
+    weight= anweight,
+    nest=T)|>
+  mutate(difference = atchctr-atcherp)
+
+as.numeric(svymean(~difference, svyess, na.rm = TRUE))
+```
+People are more emotionally attached to their country. On average, people rate their attachment to their country 1.62 points higher than their country on a 10 point scale of attachment.
+
+
+## Q2
+How does this vary across countries or regions?
+```{r}
+
+by_country <- svyess|>
+  select(cntry, difference)|>
+  drop_na()|>
+  group_by(cntry)|>
+  summarize(mean= survey_mean(difference))
+  
+ggplot(by_country, aes(x=reorder(cntry, mean), y=mean))+
+  geom_col(fill= "red2", color = "red4") +
+  theme_minimal() +
+  labs(title = "How much more do people feel attached to their country over Europe?",
+       subtitle = "(mean attachment to country - mean attachment to Europe, scale from 1-10)",
+       x = "\ncountry",
+       y = "mean difference per country \n "
+       )+
+  theme(plot.title = element_text(face= "bold", hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+
+```
+
+By country, Israel has the strongest attachment to their country over Europe. Belgium has the weakest attachment to their country over Europe, though the difference is still positive. This means for every country, on average people are more attached to their country over Europe as a whole.
+
+## Q3
+
+What individual level characteristics are associated with stronger emotional attachments to one or the other?
+
+```{r}
+
+```
+
+## Q4
+
+How do these attitudes also relate to attitudes towards the European union?
+
+```{r}
+
+```
+
+## Q5 
+
+Are people in EU member countries more or less likely to hold strong national attachments?
+```{r}
+eu_countries <- c("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE")
+
+svyess <- svyess|>
+  mutate(is_eu = cntry %in% eu_countries)
+
+by_country_EU <- svyess|>
+  select(cntry, difference, is_eu)|>
+  drop_na()|>
+  group_by(cntry, is_eu)|>
+  summarize(mean = survey_mean(difference))
+
+by_country_EU$is_eu <-
+  factor(by_country_EU$is_eu,
+         labels = c("Not in EU", "EU Member"))
+  
+ggplot(by_country_EU, aes(x=reorder(cntry, mean), y=mean, fill=is_eu))+
+  geom_col() +
+  scale_fill_manual(values = c("red3", "goldenrod1"))+
+  theme_minimal() +
+  labs(title = "How much more do people feel attached to their country over Europe?",
+       subtitle = "(mean attachment to country - mean attachment to Europe, scale from 1-10)",
+       x = "\ncountry",
+       y = "mean difference per country \n "
+       )+
+  facet_wrap(~is_eu, ncol=2, scales='free_x') +
+  theme(plot.title = element_text(face= "bold", hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5),
+        strip.text = element_text(face = "bold"),
+        legend.position = "none")
+
+by_country_EU|>
+  group_by(is_eu)|>
+  summarize(mean_difference = mean(mean))|>
+  slice_head(n=2)
+
+```
+Countries not in the EU have stronger attachment to their country than Europe than do countries in the EU. On average, the countries not in the EU rate their attachment to their country 2.69 points higher than Europe while countries in the EU rate their ties to their country only 1.77 higher than Europe. 
+
+## Q6
+
+Are there other aspects of people’s region of residence that correlate with national attachments?
+
+```{r}
+by_region_type <- svyess|>
+  select(domicil, difference)|>
+  drop_na()|>
+  group_by(domicil)|>
+  summarize(mean=mean(difference))
+
+by_region_type$domicil <-
+  factor(by_region_type$domicil,
+         labels = c("City", "Suburb", "Town", "Village", "Rural"))
+by_region_type$domicil <- fct_rev(by_region_type$domicil)
+
+ggplot(by_region_type, aes(x= domicil, y=mean)) +
+  geom_col(fill = "lightgreen", color= "darkgreen") +
+  theme_minimal() +
+  labs(title = "How much more do people feel attached to their country over Europe?",
+       subtitle = "(mean attachment to country - mean attachment to Europe, scale from 1-10)",
+       x = "\nPopulation Density (low to high)",
+       y = "Mean Difference \n")+
+  theme(plot.title = element_text(face= "bold", hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+There appears to be a negative relationship between population density and strength of attachment to their country over Europe, with an outlier of city dwelers. 
