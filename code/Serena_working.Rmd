@@ -28,9 +28,9 @@ ess<- read_dta(unz("../Data/ESS11.zip", "ESS11.dta"))|>
 
 # country = cntry, region = region, domicile = domicil, weight = anweight
 # attachment to Europe = atcherp,vattachment to country = atchctr
+# education years = eduyrs
 # stay in EU = vteurmmb, join EU = vteubcmb, European unification = euftf
 # psppsgva Political system allows people to have a say in what government does
-# psppipla Political system allows people to have influence on politics
 
 ```
            
@@ -81,8 +81,53 @@ By country, Israel has the strongest attachment to their country over Europe. Be
 What individual level characteristics are associated with stronger emotional attachments to one or the other?
 
 ```{r}
+outliers <- boxplot.stats(ess$eduyrs)$out
+
+# education -> country
+by_educationC <- svyess|>
+  select(eduyrs, atchctr)|>
+  drop_na()|>
+  group_by(eduyrs)|>
+  summarize(mean= survey_mean(atchctr))
+
+## Remove outliers
+by_educationC <- by_educationC[!by_educationC$eduyrs %in% outliers, ]
+  
+ggplot(by_educationC, aes(x=eduyrs, y=mean))+
+  geom_point(color = "blue3", size=3) +
+  theme_minimal() +
+  labs(title = "Education on attachment; home country",
+       subtitle = "(mean attachment to home country, scale from 1-10)",
+       x = "\nyears of education",
+       y = "mean attachment to home country\n "
+       )+
+  theme(plot.title = element_text(face= "bold", hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+# education -> Europe
+
+by_education <- svyess|>
+  select(eduyrs, atcherp)|>
+  drop_na()|>
+  group_by(eduyrs)|>
+  summarize(mean= survey_mean(atcherp))
+
+## Remove outliers
+by_education <- by_education[!by_education$eduyrs %in% outliers, ]
+  
+ggplot(by_education, aes(x=eduyrs, y=mean))+
+  geom_point(color = "blue3", size=3) +
+  theme_minimal() +
+  labs(title = "Education on attachment, Europe",
+       subtitle = "(mean attachment to Europe, scale from 1-10)",
+       x = "\nyears of education",
+       y = "mean attachment to Europe\n "
+       )+
+  theme(plot.title = element_text(face= "bold", hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
 
 ```
+After removing outliers, there is a very clear relationship between years of education and attachment. As years of education increase, attachment to Europe increases and attachment to one's home country decreases.
+
 
 ## Q4
 
@@ -176,25 +221,50 @@ Countries not in the EU have stronger attachment to their country than Europe th
 Are there other aspects of people’s region of residence that correlate with national attachments?
 
 ```{r}
-by_region_type <- svyess|>
-  select(domicil, difference)|>
+
+# political inclusiveness
+
+by_inclusivity <- svyess|>
+  select(psppsgva, difference, atcherp, atchctr)|>
   drop_na()|>
-  group_by(domicil)|>
-  summarize(mean=mean(difference))
+  group_by(psppsgva)|>
+  summarize(mean=survey_mean(difference))
 
-by_region_type$domicil <-
-  factor(by_region_type$domicil,
-         labels = c("City", "Suburb", "Town", "Village", "Rural"))
-by_region_type$domicil <- fct_rev(by_region_type$domicil)
+by_inclusivity$psppsgva <-
+  factor(by_inclusivity$psppsgva,
+         labels = c("Not at all", "Very Little", "Some", "A lot", "A great deal"))
 
-ggplot(by_region_type, aes(x= domicil, y=mean)) +
-  geom_col(fill = "lightgreen", color= "darkgreen") +
+ggplot(by_inclusivity, aes(x= psppsgva, y=mean)) +
+  geom_col(fill = "pink", color= "pink3") +
   theme_minimal() +
-  labs(title = "How much more do people feel attached to their country over Europe?",
+  labs(title = "Perception of Inclusive Insitutions on Attachment",
        subtitle = "(mean attachment to country - mean attachment to Europe, scale from 1-10)",
-       x = "\nPopulation Density (low to high)",
+       x = "\nInclusivity",
        y = "Mean Difference \n")+
   theme(plot.title = element_text(face= "bold", hjust = 0.5), 
         plot.subtitle = element_text(hjust = 0.5))
+
+# inclusiveness- country
+
+by_inclusivity1 <- svyess|>
+  select(psppsgva, atcherp, atchctr)|>
+  drop_na()|>
+  group_by(psppsgva)|>
+  summarize(mean= survey_mean(atchctr))
+
+by_inclusivity1$psppsgva <-
+  factor(by_inclusivity1$psppsgva,
+         labels = c("Not at all", "Very Little", "Some", "A lot", "A great deal"))
+
+ggplot(by_inclusivity1, aes(x= psppsgva, y=mean)) +
+  geom_col(fill = "maroon3", color= "maroon4") +
+  theme_minimal() +
+  labs(title = "Perception of Inclusive Insitutions on Attachment",
+       subtitle = "(mean attachment to country)",
+       x = "\nInclusivity",
+       y = "Mean Difference \n")+
+  theme(plot.title = element_text(face= "bold", hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+
 ```
-There appears to be a negative relationship between population density and strength of attachment to their country over Europe, with an outlier of city dwelers. 
+There is a negative relationship between how inclusive the institutions are and strength of attachment to their country over Europe, with an outlier of those who feel their government is the most inclusive breaking the pattern. When broken down by country attachment, it is clear that while inclusiveness has a small effect on country attachment (a weak positive relationship), the original relationship is more explained by the change in attachment to Europe.
